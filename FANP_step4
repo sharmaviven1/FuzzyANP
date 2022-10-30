@@ -1,0 +1,45 @@
+#! python3
+import numpy as np
+import openpyxl,pickle
+from os import startfile
+
+wb = openpyxl.Workbook()
+ws = wb.active
+
+C,R =1,1 
+
+G = pickle.load(open("DATA0.p","rb"))
+clist1 = pickle.load(open("DATA1.p","rb"))
+clist2 = pickle.load(open("DATA2.p","rb"))
+
+for M in G:
+	rows,cols = M.shape
+	for t1 in range(0,rows):
+		for t2 in range(0,cols):
+			ws.cell(row=R+t1,column=C+t2).value = M[t1,t2]
+
+	R = R + rows + 2
+
+C,R = 6,1
+for M in clist1:
+	rows,cols = M.shape
+	for t1 in range(0,rows):
+		for t2 in range(0,cols):
+			ws.cell(row=R+t1,column=C+t2).value = M[t1,t2]
+
+	R = R + rows + 2
+
+C,R = 8,1
+for M in clist2:
+	rows,cols = M.shape
+	for t1 in range(0,rows):
+		for t2 in range(0,cols):
+			ws.cell(row=R+t1,column=C+t2).value = M[t1,t2]
+
+	R = R + rows + 2
+
+
+
+wb.save("DATA.xlsx")
+startfile("DATA.xlsx")
+
