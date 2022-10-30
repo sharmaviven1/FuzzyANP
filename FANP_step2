@@ -1,0 +1,153 @@
+#! python3
+# Takes s1 sheet, normalizes fuzzy inputs, gives centroids
+import openpyxl,pickle
+import numpy as np
+from os import startfile
+
+def gmean(x):
+	f = 1
+	for t in x: f = f*t
+	return f**(1/len(x))
+
+def cent(x):
+	x1,x2,x3,x4 = x
+	area = 0.5*(x4-x1 + x3-x2)*1
+	if area < 0.00001: 
+		return x1
+	else:
+		temp = (x1+2*x2)/3 + (x2+x3)/2 + (2*x3 + x4)/3
+		return temp/3
+		#return (x1 +x2 +x3 + x4)/4
+
+C,S,A = 5,[3,2,3,4,3],10+1
+F = {"VL":[1,2,3,4], "L":[3,4,5,6], "M":[5,6,7,8],"H":[7,8,9,10],"VH":[9,10,11,12],"one":[1,1,1,1]}
+shape = 4
+
+# row_st, col_st, row_E,col_E
+X = [(2,2,4,14+1+1),(8,2,9,13+1+1),(13,2,15,14+1+1),(19,2,22,15+1+1),(26,2,28,14+1+1)]
+#INV = pickle.load(open("log.p", "rb" ))
+INV = [("M3","N2"),("M4","O2"),("N4","O3"),("M9","N8"),("M14","N13"),("M15","O13"),("N15","O14")]
+INV = INV + [("M20","N19"),("M21","O19"),("M22","P19"),("N21","O20"),("N22","P20"),("O22","P21")]
+INV = INV + [("M27","N26"),("M28","O26"),("N28","O27")]
+
+# Old sheet
+wLb = openpyxl.load_workbook("ss1.xlsx") 
+wLs = wLb.get_sheet_by_name("Sheet")
+# New sheet
+wb = openpyxl.Workbook()
+ws = wb.active
+
+
+vals = []
+G = []
+for r1,c1,r2,c2 in X:
+	t = np.ones((r2 - r1 +1,c2 - c1 +1, shape))
+	vals.append(t)
+	lol = np.ones((r2 - r1 +1,shape))
+	G.append(lol)
+
+# load fuzzy values except INV
+i = 0
+for row_st, col_st, row_E,col_E in X: # For one C
+	M = vals[i]
+	for row in range(row_st,row_E + 1):
+		for col in range(col_st,col_E + 1):
+			t = wLs.cell(row = row, column = col).value
+			if t != None and t != "INV": M[row - row_st, col - col_st, :] = F[t]
+
+	i = i+1
+
+# Handeling INV
+i = 0
+for row_st, col_st, row_E,col_E in X: # For one C
+	# M = vals[i]
+	for row in range(row_st,row_E + 1):
+		for col in range(col_st,col_E + 1):
+			t = wLs.cell(row = row, column = col)
+			if t.value == "INV": 
+				v1 = t.coordinate
+				#M[row - row_st, col - col_st, :]
+				for b1,b2 in INV:
+					if b1 == v1:
+						# print(b1)
+						if wLs[b2].value != None :
+							temp = F[wLs[b2].value]
+						else:
+							temp = [100,100,100,100] 
+						temp1 = [1/a for a in temp]
+						# print(temp1)
+						vals[i][row - row_st, col - col_st, :] = temp1[::-1]
+
+
+	i = i+1
+
+#show intermediate results
+print("Linguistic to fuzzy done")
+i = 0
+for row_st, col_st, row_E,col_E in X: # For one C
+	M = vals[i]
+	for row in range(row_st,row_E + 1):
+		for col in range(col_st,col_E + 1):
+			#t = wLs.cell(row = row, column = col).value
+			wLs.cell(row = row, column = col).value = str(M[row - row_st, col - col_st,:])
+
+	i = i+1
+
+# Normalize
+print("Gmean of decison matrix")
+for m,g in zip(vals,G):
+	Ro,Co,Ch = m.shape
+	for subcri in range(0,Ro):
+		for i in range(0,Ch):
+			print(m[subcri,:,i].tolist(),gmean(m[subcri,:,i].tolist()))
+			g[subcri,i] = gmean(m[subcri,:,i].tolist())
+
+pickle.dump(G, open("DATA0.p","wb"))
+
+# print("Column normalizing G matrix")
+# for g in G:
+# 	Ro,Co = g.shape
+# 	for i in range(0,Co):
+# 		g[:,i] = g[:,i]/sum(g[:,i].tolist()) 
+
+# G2 = G
+
+# Calculate centroids
+cents = []
+for g in G:
+	temp = np.ones((g.shape[0],1))
+	for viven in range(0,temp.shape[0]):
+		temp[viven,0] = cent(g[viven,:].tolist())
+
+	cents.append(temp)
+
+pickle.dump(cents, open("DATA1.p","wb"))
+
+# print 
+i = 1
+for g,sharma in zip(G,cents):
+	print("G "+str(i)+" : ",g,"\n")
+	print("UnNor_Centroids "+str(i)+" : ",sharma,"\n")
+	i = i+1
+
+# Normalize centroids
+print("Column normalizing centroids")
+for m in cents:
+	Ro,Co = m.shape
+	for i in range(0,Co):
+		m[:,i] = m[:,i]/sum(m[:,i].tolist()) 
+
+pickle.dump(cents, open("DATA2.p","wb"))
+
+# Export centroids
+dharni = []
+for tandon in cents:
+	for j in range(0,tandon.shape[0]):
+		dharni.append(tandon[j,0])
+
+print("Exported cetroids: ",dharni)
+pickle.dump(dharni, open("cents.p","wb"))
+
+
+wLb.save("s2.xlsx")
+startfile("s2.xlsx")
