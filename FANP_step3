@@ -1,0 +1,75 @@
+#! python3
+import numpy as np
+import openpyxl,pickle
+from os import startfile
+
+def powerf(n):
+	if n < 50: 
+		return int(100 + n*90/5)
+	else:
+		return 1000
+
+cents = pickle.load(open("cents.p","rb"))
+
+wLb = openpyxl.load_workbook("Tab1.xlsx") 
+wLs = wLb.get_sheet_by_name("Sheet1")
+
+wb = openpyxl.Workbook()
+ws = wb.active
+
+# N2,27 se AB2,27 tak
+row_start, row_end = 2,27
+col_start, col_end = 14,28#wLs["N2"].column, wLs["AB2"].column
+
+# Multiplying columns by centroids
+i = 0
+for c in range(col_start,col_end+1):
+	for r in range(row_start,row_end+1):
+		t = float(wLs.cell(row=r, column=c).value)
+		wLs.cell(row=r, column=c).value = t*cents[i]
+		print("Row,Col: ",r,c,"Orig,New: ", t,t*cents[i])
+
+	i = i+1
+
+# **************** Normalize entire matrix, from C2 to AC28
+row_start,row_end = 2,28#wLs["C2"].row, wLs["AC28"].row
+col_start,col_end = 3,29#wLs["C2"].column, wLs["AC28"].column
+M = np.ones((row_end - row_start+1,col_end - col_start+1))
+# Load
+for c in range(col_start,col_end+1):
+	for r in range(row_start,row_end+1):
+		t = float(wLs.cell(row=r, column=c).value)
+		M[r - row_start,c - col_start] = t
+
+# Dump un normalized
+for c in range(col_start,col_end+1):
+	for r in range(row_start,row_end+1):
+		ws.cell(row=r, column=c).value = M[r - row_start,c - col_start]
+wb.save("Un_NORM_weighted_superM.xlsx")
+
+# Column normalize
+for i in range(0,M.shape[1]):
+	print("Col ",i+3," sum:",sum(M[:,i].tolist()))
+	M[:,i] = M[:,i]/sum(M[:,i].tolist())
+# Dump back
+for c in range(col_start,col_end+1):
+	for r in range(row_start,row_end+1):
+		wLs.cell(row=r, column=c).value = M[r - row_start,c - col_start]
+wLb.save("weighted_superM.xlsx")
+
+# Limit supermatrix
+T = np.linalg.matrix_power(M,powerf(27))
+print("Power: ",powerf(27))
+for c in range(col_start,col_end+1):
+	for r in range(row_start,row_end+1):
+		wLs.cell(row=r, column=c).value = T[r - row_start,c - col_start]
+
+wLb.save("limit.xlsx")
+
+
+
+
+#Store and launch
+startfile("weighted_superM.xlsx")
+startfile("limit.xlsx")
+startfile("Un_NORM_weighted_superM.xlsx")
